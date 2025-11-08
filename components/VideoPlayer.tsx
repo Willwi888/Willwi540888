@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { TimedLyric } from '../types';
 import PlayIcon from './icons/PlayIcon';
@@ -273,7 +271,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ timedLyrics, audioUrl, imageU
 
   const handleExport = useCallback(async () => {
     isExportCancelled.current = false;
-    setExportProgress({ message: '正在初始化...', progress: undefined });
+    // Stage 1: Initialization
+    setExportProgress({ message: '正在初始化...', progress: 0, details: '準備匯出環境' });
 
     const { createFFmpeg, fetchFile } = (window as any).FFmpeg;
     const ffmpeg = createFFmpeg({
@@ -284,7 +283,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ timedLyrics, audioUrl, imageU
           try { ffmpeg.exit(); } catch(e) {}
           return;
         };
-        const encodingProgress = 80 + ratio * 20; // Encoding is final 20%
+        // Stage 4: Encoding (80% -> 100%)
+        const encodingProgress = 80 + ratio * 20;
         setExportProgress({ 
           message: '正在編碼影片...',
           progress: encodingProgress,
@@ -295,12 +295,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ timedLyrics, audioUrl, imageU
 
     try {
       await ffmpeg.load();
-
-      setExportProgress({ message: '正在讀取素材...', progress: 0, details: '音訊' });
+      setExportProgress({ message: '初始化完成', progress: 5, details: '環境準備就緒' });
+      
+      // Stage 2: Loading assets (5% -> 10%)
+      setExportProgress({ message: '正在讀取素材...', progress: 5, details: '音訊檔案' });
       ffmpeg.FS('writeFile', 'audio.mp3', await fetchFile(audioUrl));
       
-      setExportProgress({ message: '正在讀取素材...', progress: 2, details: '圖片' });
+      setExportProgress({ message: '正在讀取素材...', progress: 7, details: '背景圖片' });
       ffmpeg.FS('writeFile', 'background.jpg', await fetchFile(imageUrl));
+      
+      setExportProgress({ message: '素材讀取完成', progress: 10, details: '準備生成影格' });
       
       const res = resolutions[resolution];
       const canvas = document.createElement('canvas');
@@ -358,12 +362,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ timedLyrics, audioUrl, imageU
             
             if (i === 0) {
                 const progress = (time - lyric.startTime) / (lyric.endTime - lyric.startTime);
-                const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
-                gradient.addColorStop(0.5 * (1-progress), theme.inactive1);
-                gradient.addColorStop(0.5, theme.active);
-                gradient.addColorStop(0.5 * (1+progress), theme.active);
-                gradient.addColorStop(1, theme.inactive1);
-
                 const textWidth = ctx.measureText(lyric.text).width;
                 const gradient2 = ctx.createLinearGradient(
                   (canvas.width - textWidth) / 2, 0,
@@ -394,7 +392,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ timedLyrics, audioUrl, imageU
         ctx.fillText(artistName, 40, 50 + (fontSize * 0.6) + 10);
       };
 
-      setExportProgress({ message: '正在生成影格...', progress: 5, details: `0 / ${totalFrames}` });
+      // Stage 3: Frame Generation (10% -> 80%)
+      setExportProgress({ message: '正在生成影格...', progress: 10, details: `0 / ${totalFrames}` });
 
       for (let i = 0; i < totalFrames; i++) {
         if (isExportCancelled.current) throw new Error("Export cancelled");
@@ -403,16 +402,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ timedLyrics, audioUrl, imageU
         const frameData = canvas.toDataURL('image/jpeg', 0.8);
         ffmpeg.FS('writeFile', `frame${i.toString().padStart(5, '0')}.jpg`, await fetchFile(frameData));
         
-        // Progress: 5% for loading, 75% for frame generation
-        const frameGenProgress = 5 + ((i + 1) / totalFrames) * 75;
+        const frameGenProgress = 10 + ((i + 1) / totalFrames) * 70;
         setExportProgress({
             message: '正在生成影格...',
             progress: frameGenProgress,
-            details: `${i + 1} / ${totalFrames}`
+            details: `第 ${i + 1} / ${totalFrames} 幀`
         });
       }
 
-      setExportProgress({ message: '正在編碼影片...', progress: 80, details: '這可能需要一些時間。' });
+      setExportProgress({ message: '影格生成完畢', progress: 80, details: '準備編碼影片...' });
       
       await ffmpeg.run(
         '-framerate', `${frameRate}`,
@@ -427,7 +425,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ timedLyrics, audioUrl, imageU
         'output.mp4'
       );
       
-      setExportProgress({ message: '正在準備下載...', progress: 100 });
+      // Stage 5: Finalizing
+      setExportProgress({ message: '匯出完成！', progress: 100, details: '正在準備下載...' });
 
       const data = ffmpeg.FS('readFile', 'output.mp4');
       const videoBlobUrl = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
@@ -440,7 +439,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ timedLyrics, audioUrl, imageU
       document.body.removeChild(link);
       URL.revokeObjectURL(videoBlobUrl);
 
-      setExportProgress({ message: '匯出完成！', progress: 100 });
       setTimeout(() => setExportProgress(null), 3000);
 
     } catch (error) {

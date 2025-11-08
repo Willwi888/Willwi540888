@@ -74,6 +74,12 @@ const convertGoogleDriveLink = (url: string): string | null => {
     return null;
 };
 
+const getUrlFromInput = (urlInput: string): string => {
+    if (!urlInput.trim()) return '';
+    const googleDriveUrl = convertGoogleDriveLink(urlInput);
+    return googleDriveUrl || urlInput;
+};
+
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>('CHOOSER');
@@ -105,7 +111,7 @@ const App: React.FC = () => {
           return URL.createObjectURL(audioFile);
       }
       if (audioInputMethod === 'link' && audioUrlInput) {
-          return convertGoogleDriveLink(audioUrlInput) || '';
+          return getUrlFromInput(audioUrlInput);
       }
       return '';
   }, [audioFile, audioInputMethod, audioUrlInput]);
@@ -115,8 +121,8 @@ const App: React.FC = () => {
           return URL.createObjectURL(backgroundImage);
       }
       if (imageInputMethod === 'link' && imageUrlInput) {
-          const convertedUrl = convertGoogleDriveLink(imageUrlInput);
-          if (convertedUrl) return convertedUrl;
+          const providedUrl = getUrlFromInput(imageUrlInput);
+          if (providedUrl) return providedUrl;
       }
       return DEFAULT_BG_IMAGE;
   }, [backgroundImage, imageInputMethod, imageUrlInput]);
@@ -206,7 +212,7 @@ const App: React.FC = () => {
   };
   
   const isFormValid = useMemo(() => {
-    const isAudioReady = audioInputMethod === 'upload' ? !!audioFile : !!convertGoogleDriveLink(audioUrlInput);
+    const isAudioReady = audioInputMethod === 'upload' ? !!audioFile : !!getUrlFromInput(audioUrlInput);
     return !!(lyricsText && isAudioReady && songTitle && artistName);
   }, [lyricsText, audioInputMethod, audioFile, audioUrlInput, songTitle, artistName]);
 
@@ -411,11 +417,11 @@ const App: React.FC = () => {
                           <input
                               type="url"
                               className="block w-full px-3 py-2 bg-gray-900/50 border border-gray-600 rounded-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm text-white"
-                              placeholder="貼上 Google 雲端硬碟分享連結..."
+                              placeholder="貼上直接連結或 Google 雲端分享連結..."
                               value={audioUrlInput}
                               onChange={(e) => setAudioUrlInput(e.target.value)}
                           />
-                           <p className="text-xs text-gray-500 mt-1">請確保連結權限為「知道連結的任何人」。</p>
+                           <p className="text-xs text-gray-500 mt-1">請確保連結為公開可存取，或 Google 雲端權限為「知道連結的任何人」。</p>
                       </div>
                   )}
               </div>
@@ -446,7 +452,7 @@ const App: React.FC = () => {
                           <input
                               type="url"
                               className="block w-full px-3 py-2 bg-gray-900/50 border border-gray-600 rounded-md shadow-sm placeholder-gray-500 focus:outline-none focus:ring-gray-500 focus:border-gray-500 sm:text-sm text-white"
-                              placeholder="貼上 Google 雲端硬碟分享連結..."
+                              placeholder="貼上直接連結或 Google 雲端分享連結..."
                               value={imageUrlInput}
                               onChange={(e) => setImageUrlInput(e.target.value)}
                           />
